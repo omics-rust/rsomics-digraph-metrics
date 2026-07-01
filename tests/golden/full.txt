@@ -1,0 +1,5 @@
+# directed edge list u v (u->v)
+0 1
+1 0
+1 2
+2 1
