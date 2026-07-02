@@ -6,12 +6,13 @@
 //! - [`flow_hierarchy`] mirrors `nx.flow_hierarchy`
 //!
 //! Input is a directed edge list (`u v` = u→v, whitespace separated, string
-//! labels). `#` comments and blank lines are skipped, parallel edges are
-//! deduplicated, and self-loops are dropped at parse — the graph is the simple
-//! digraph over the *edge-list node set*. Isolated nodes are unrepresentable
-//! from an edge list, so the per-node `None` branch of `nx.reciprocity` (which
-//! fires only for a degree-0 node) is unreachable through the CLI; it is still
-//! honoured by [`node_reciprocity`] for completeness.
+//! labels). `#` comments and blank lines are skipped and parallel edges are
+//! deduplicated — the simple digraph over the *edge-list node set*. Self-loops
+//! are kept: a node with a self-loop is its own predecessor and successor, so
+//! `nx.reciprocity` counts the loop as fully reciprocated. Isolated nodes are
+//! unrepresentable from an edge list, so the per-node `None` branch of
+//! `nx.reciprocity` (which fires only for a degree-0 node) is unreachable
+//! through the CLI; it is still honoured by [`node_reciprocity`].
 //!
 //! References: NetworkX (BSD-3-Clause); Luo, J. & Magee, C.L. (2011),
 //! "Detecting evolving patterns of self-organizing networks by flow hierarchy
@@ -28,7 +29,7 @@ pub struct DiGraph {
     idx_to_node: Vec<String>,
     succ: Vec<Vec<usize>>,
     pred: Vec<Vec<usize>>,
-    /// Distinct directed edges `(u, v)`, u→v, deduped, self-loops excluded.
+    /// Distinct directed edges `(u, v)`, u→v, deduped; self-loops kept.
     edges: HashSet<(usize, usize)>,
 }
 
@@ -62,8 +63,8 @@ impl DiGraph {
 }
 
 /// Parse a whitespace-delimited directed edge list (`u v` = u→v). `#` comments
-/// and blank lines are skipped; parallel edges deduped; self-loops dropped —
-/// the simple digraph `nx.parse_edgelist(create_using=nx.DiGraph)` yields.
+/// and blank lines are skipped; parallel edges deduped; self-loops kept — the
+/// simple digraph `nx.parse_edgelist(create_using=nx.DiGraph)` yields.
 #[must_use]
 pub fn parse_edge_list(input: &str) -> DiGraph {
     let mut g = DiGraph {
@@ -85,9 +86,6 @@ pub fn parse_edge_list(input: &str) -> DiGraph {
         };
         let ui = g.intern(u, &mut table);
         let vi = g.intern(v, &mut table);
-        if ui == vi {
-            continue;
-        }
         if g.edges.insert((ui, vi)) {
             g.succ[ui].push(vi);
             g.pred[vi].push(ui);

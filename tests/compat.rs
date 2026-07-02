@@ -287,16 +287,77 @@ fn gnp2_nodes() {
 
 // ---- structural edge cases -------------------------------------------------
 
-/// Comments, blanks, a duplicate parallel edge, and a self-loop are all handled
-/// the way the parser documents (dedup + self-loop drop); the resulting simple
-/// digraph is the `hand` graph, so metrics are unchanged.
+/// Comments, blanks, and a duplicate parallel edge are stripped; the self-loop
+/// on `2` is kept, matching `nx.parse_edgelist`. Oracle values captured from
+/// networkx 3.6.1 on the resulting 6-edge digraph.
 #[test]
 fn parse_dedup_selfloop_comments() {
     let noisy = "# header\n0 1\n\n1 0\n1 0\n1 2\n2 2\n2 3\n3 2\n";
     let g = parse_edge_list(noisy);
-    assert_eq!(g.edge_count(), 5, "self-loop + parallel dropped");
-    assert_close(overall_reciprocity(&g), 0.8, "noisy overall");
-    assert_close(flow_hierarchy(&g), 0.19999999999999996, "noisy flow");
+    assert_eq!(g.edge_count(), 6, "parallel deduped, self-loop kept");
+    assert_close(overall_reciprocity(&g), 0.6666666666666666, "noisy overall");
+    assert_close(flow_hierarchy(&g), 0.16666666666666663, "noisy flow");
+    assert_nodes(
+        noisy,
+        &[
+            ("0", 1.0),
+            ("1", 0.6666666666666666),
+            ("2", 0.8),
+            ("3", 1.0),
+        ],
+        "noisy",
+    );
+}
+
+// ---- self-loop: only edge is 0->0, plus an isolated 1->2 -------------------
+// A self-loop is its own reverse, so its node is fully reciprocated (nx=1.0);
+// the earlier drop-at-parse yielded NaN here.
+const SELFLOOP_ISO: &str = include_str!("golden/selfloop_iso.txt");
+
+#[test]
+fn selfloop_iso_scalars() {
+    let g = parse_edge_list(SELFLOOP_ISO);
+    assert_close(overall_reciprocity(&g), 0.0, "selfloop_iso overall");
+    assert_close(flow_hierarchy(&g), 0.5, "selfloop_iso flow");
+}
+
+#[test]
+fn selfloop_iso_nodes() {
+    assert_nodes(
+        SELFLOOP_ISO,
+        &[("0", 1.0), ("1", 0.0), ("2", 0.0)],
+        "selfloop_iso",
+    );
+}
+
+// ---- self-loop mixed with reciprocal and one-way edges ---------------------
+// 0->0,0->1,1->0 (self-loop node in a reciprocal pair); 2->2,2->3 (self-loop
+// with a one-way out-edge).
+const SELFLOOP_MIXED: &str = include_str!("golden/selfloop_mixed.txt");
+
+#[test]
+fn selfloop_mixed_scalars() {
+    let g = parse_edge_list(SELFLOOP_MIXED);
+    assert_close(overall_reciprocity(&g), 0.4, "selfloop_mixed overall");
+    assert_close(
+        flow_hierarchy(&g),
+        0.19999999999999996,
+        "selfloop_mixed flow",
+    );
+}
+
+#[test]
+fn selfloop_mixed_nodes() {
+    assert_nodes(
+        SELFLOOP_MIXED,
+        &[
+            ("0", 1.0),
+            ("1", 1.0),
+            ("2", 0.6666666666666666),
+            ("3", 0.0),
+        ],
+        "selfloop_mixed",
+    );
 }
 
 /// A node with edges but no reciprocal overlap gets `2*0/n_total = 0.0`

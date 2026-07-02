@@ -36,8 +36,8 @@ impl From<MetricArg> for Metric {
 /// Directed-graph structural metrics (`networkx` reciprocity / flow hierarchy).
 ///
 /// Reads a directed edge list (`u v` = u→v, one per line; `#` comments and
-/// blank lines skipped; string node labels; parallel edges deduplicated and
-/// self-loops dropped, giving the simple digraph over the edge-list node set).
+/// blank lines skipped; string node labels; parallel edges deduplicated,
+/// self-loops kept, giving the simple digraph over the edge-list node set).
 /// Isolated nodes are unrepresentable from an edge list.
 #[derive(Parser, Debug)]
 #[command(name = "rsomics-digraph-metrics", version, about, long_about = None)]

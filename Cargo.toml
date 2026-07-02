@@ -1,6 +1,6 @@
 [package]
 name = "rsomics-digraph-metrics"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Directed-graph structural metrics (overall/node reciprocity, flow hierarchy) — value-exact port of networkx"
 license = "MIT OR Apache-2.0"
