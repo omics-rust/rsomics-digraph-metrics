@@ -6,8 +6,9 @@
 //! - [`flow_hierarchy`] mirrors `nx.flow_hierarchy`
 //!
 //! Input is a directed edge list (`u v` = u→v, whitespace separated, string
-//! labels). `#` comments and blank lines are skipped and parallel edges are
-//! deduplicated — the simple digraph over the *edge-list node set*. Self-loops
+//! labels). Text from the first `#` onward is a comment, blank lines are
+//! skipped, and parallel edges are deduplicated — the simple digraph over the
+//! *edge-list node set*. Self-loops
 //! are kept: a node with a self-loop is its own predecessor and successor, so
 //! `nx.reciprocity` counts the loop as fully reciprocated. Isolated nodes are
 //! unrepresentable from an edge list, so the per-node `None` branch of
@@ -62,9 +63,10 @@ impl DiGraph {
     }
 }
 
-/// Parse a whitespace-delimited directed edge list (`u v` = u→v). `#` comments
-/// and blank lines are skipped; parallel edges deduped; self-loops kept — the
-/// simple digraph `nx.parse_edgelist(create_using=nx.DiGraph)` yields.
+/// Parse a whitespace-delimited directed edge list (`u v` = u→v). Text from the
+/// first `#` onward is a comment and dropped before tokenising; blank lines are
+/// skipped; parallel edges deduped; self-loops kept — the simple digraph
+/// `nx.parse_edgelist(create_using=nx.DiGraph)` yields.
 #[must_use]
 pub fn parse_edge_list(input: &str) -> DiGraph {
     let mut g = DiGraph {
@@ -76,8 +78,9 @@ pub fn parse_edge_list(input: &str) -> DiGraph {
     let mut table = HashMap::new();
 
     for line in input.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+        // nx.parse_edgelist strips a '#' comment anywhere in the line before tokenising.
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
             continue;
         }
         let mut parts = line.split_whitespace();
@@ -278,5 +281,31 @@ pub fn compute(g: &DiGraph, metric: Metric) -> MetricResult {
             metric: "node-reciprocity",
             nodes: node_reciprocity(g),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    fn edge_label_set(g: &DiGraph) -> BTreeSet<(String, String)> {
+        g.edges
+            .iter()
+            .map(|&(u, v)| (g.label(u).to_owned(), g.label(v).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn inline_hash_comment_matches_comment_free_graph() {
+        // A '#' anywhere in a line begins a comment: "1 2#c" is the edge 1→2,
+        // and "0 #x" collapses to the lone token "0" (no target) so it is
+        // skipped — exactly as nx.parse_edgelist treats these lines.
+        let with_comments = parse_edge_list("0 1\n1 2#c\n2 3\n0 #x\n# whole line\n");
+        let clean = parse_edge_list("0 1\n1 2\n2 3\n");
+
+        assert_eq!(edge_label_set(&with_comments), edge_label_set(&clean));
+        assert_eq!(with_comments.node_count(), clean.node_count());
+        assert_eq!(with_comments.edge_count(), clean.edge_count());
     }
 }
